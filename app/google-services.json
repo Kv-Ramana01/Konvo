@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "261597681518",
+    "project_id": "konvo-f41be",
+    "storage_bucket": "konvo-f41be.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:261597681518:android:80543504fc8cfc797fd37f",
+        "android_client_info": {
+          "package_name": "com.example.konvo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOEGpqGw3oTqxdQioSf1jsCNeOCGqbuiE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
