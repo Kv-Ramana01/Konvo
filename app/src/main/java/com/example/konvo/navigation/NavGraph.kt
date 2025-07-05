@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.konvo.feature.auth.ui.LoginScreen
 
 object Dest {
     const val LOGIN   = "login"
@@ -17,7 +18,13 @@ object Dest {
 fun KonvoNavGraph(startDest: String = Dest.LOGIN) {
     val nav = rememberNavController()
     NavHost(nav, startDest) {
-        composable(Dest.LOGIN)   { LoginScreen { nav.navigate(Dest.CHATLIST) } }
+        composable(Dest.LOGIN) {
+            LoginScreen(
+                onLoginClick    = { nav.navigate(Dest.CHATLIST) },   // temporary mock
+                onRegisterClick = { /* TODO: navigate to register */ }
+            )
+        }
+/*
         composable(Dest.CHATLIST){ ChatListScreen(nav) }
         composable(
             Dest.CHAT,
@@ -25,5 +32,7 @@ fun KonvoNavGraph(startDest: String = Dest.LOGIN) {
         ) { back ->
             ChatScreen(chatId = back.arguments!!.getString("chatId")!!)
         }
+
+ */
     }
 }
