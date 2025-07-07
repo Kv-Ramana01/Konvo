@@ -12,7 +12,20 @@
           "package_name": "com.example.konvo"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "261597681518-i6h3rro8s6i0b2fkl7jvde0n919scr60.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.konvo",
+            "certificate_hash": "b022df09bc183fc1ab930ed28a1ec4e94760b835"
+          }
+        },
+        {
+          "client_id": "261597681518-qvik13d7m932j79akuefstkee01pbdh0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDOEGpqGw3oTqxdQioSf1jsCNeOCGqbuiE"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "261597681518-qvik13d7m932j79akuefstkee01pbdh0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

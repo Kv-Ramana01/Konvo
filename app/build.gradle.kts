@@ -1,6 +1,7 @@
 
 plugins {
-    alias(libs.plugins.android.application)
+    id("com.android.application")
+    //alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
@@ -31,17 +32,28 @@ android {
             )
         }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "11" }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        buildConfig = true      // <- guarantees BuildConfig.java is generated
+        compose = true
+    }
 }
 
 dependencies {
+
+    implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
+
+
+    implementation(libs.accompanist.navigation.animation)
+
     implementation("com.airbnb.android:lottie-compose:6.2.0")
 
     /* ---------- AndroidX / Compose ---------- */
@@ -56,6 +68,7 @@ dependencies {
 
     implementation(platform(libs.androidx.compose.bom.v20240500))
     implementation(libs.material3)
+    implementation(libs.androidx.core.splashscreen)
 
 
     testImplementation(libs.junit)
@@ -69,21 +82,42 @@ dependencies {
     /* ---------- Hilt ---------- */
     implementation("com.google.dagger:hilt-android:2.52")
     kapt("com.google.dagger:hilt-compiler:2.52")
+
+
+    // Hilt for ViewModel
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    kapt("androidx.hilt:hilt-compiler:1.2.0")
 
     /* ---------- Firebase ---------- */
-    implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
+
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
 
-    /* ---------- Image loading ---------- */
+
     implementation(libs.coil.compose)
 
-    /* ---------- Force correct javapoet on ALL classpaths ---------- */
+
     implementation("com.squareup:javapoet:1.13.0")
     kapt        ("com.squareup:javapoet:1.13.0")
+
+    implementation("androidx.credentials:credentials:1.6.0-alpha03")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0-alpha03")
+
+
+    implementation("com.google.android.gms:play-services-auth:21.1.0")
+
+
+    // packaged in debug → gives you the Debug provider
+    debugImplementation("com.google.firebase:firebase-appcheck-debug")
+
+    // ONLY for compiling debug; **not** packaged at runtime
+    debugCompileOnly("com.google.firebase:firebase-appcheck-playintegrity")
+
+    // packaged in release → Play‑Integrity is used in prod
+    releaseImplementation("com.google.firebase:firebase-appcheck-playintegrity")
+
 }
 
 configurations.all {
