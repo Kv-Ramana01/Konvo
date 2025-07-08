@@ -1,6 +1,5 @@
 package com.example.konvo.feature.auth.ui
 
-import KonvoLogo
 
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,7 +52,7 @@ import com.example.konvo.ui.theme.KonvoNavyLight
 import com.example.konvo.ui.theme.KonvoOrangeDark
 import com.example.konvo.ui.util.AnimatedGradient
 import com.example.konvo.util.rememberKeyboardHider
-import com.example.konvo.util.rememberSlidingBrush
+import com.example.konvo.util.rememberCosmicBrushes
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
 
