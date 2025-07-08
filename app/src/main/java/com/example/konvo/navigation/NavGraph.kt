@@ -2,6 +2,9 @@
 package com.example.konvo.navigation
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -54,8 +57,22 @@ fun KonvoNavGraph() {
             /* ---------- Splash ---------- */
             composable(
                 Dest.SPLASH,
-                exitTransition     = { fadeOut() },
-                popEnterTransition = { fadeIn() }
+                enterTransition = {
+                    fadeIn(animationSpec = tween(700, easing = FastOutSlowInEasing)) +
+                    scaleIn(initialScale = 0.92f, animationSpec = spring(stiffness = Spring.StiffnessLow))
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                    scaleOut(targetScale = 1.08f, animationSpec = spring(stiffness = Spring.StiffnessMedium))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(700, easing = FastOutSlowInEasing)) +
+                    scaleIn(initialScale = 1.08f, animationSpec = spring(stiffness = Spring.StiffnessLow))
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                    scaleOut(targetScale = 0.92f, animationSpec = spring(stiffness = Spring.StiffnessMedium))
+                }
             ) { SplashScreen(nav) }
 
             /* ========== AUTH FLOW ========== */
@@ -67,19 +84,59 @@ fun KonvoNavGraph() {
                 /* ---------- Login ---------- */
                 composable(
                     Dest.LOGIN,
-                    enterTransition   = { fadeIn() },
-                    exitTransition    = { slidePushOut() },
-                    popEnterTransition= { parallaxPopIn() },
-                    popExitTransition = { fadeOut() }
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { it },
+                            animationSpec = spring(stiffness = Spring.StiffnessLow)
+                        ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.96f)
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / 2 },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.04f)
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { -it },
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                        ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 1.04f)
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { it },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.96f)
+                    }
                 ) { LoginScreen(nav) }
 
                 /* ---------- Signup ----------- */
                 composable(
                     Dest.SIGNUP,
-                    enterTransition     = { slidePushIn() },
-                    exitTransition      = { slidePushOut() },
-                    popEnterTransition  = { parallaxPopIn() },
-                    popExitTransition   = { parallaxPopOut() }
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { it },
+                            animationSpec = spring(stiffness = Spring.StiffnessLow)
+                        ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.96f)
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / 2 },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.04f)
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { -it },
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                        ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 1.04f)
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { it },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.96f)
+                    }
                 ) { backStackEntry ->
                     val parent = remember(backStackEntry) { nav.getBackStackEntry(Dest.AUTH) }
                     val vm: AuthViewModel = hiltViewModel(parent)
@@ -89,10 +146,30 @@ fun KonvoNavGraph() {
                 /* ---------- Phone ---------- */
                 composable(
                     Dest.PHONE,
-                    enterTransition   = { slidePushIn() },
-                    exitTransition    = { slidePushOut() },
-                    popEnterTransition= { parallaxPopIn() },
-                    popExitTransition = { parallaxPopOut() }
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { it },
+                            animationSpec = spring(stiffness = Spring.StiffnessLow)
+                        ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.96f)
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / 2 },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.04f)
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { -it },
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                        ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 1.04f)
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { it },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.96f)
+                    }
                 ) { backStackEntry ->
                     val parent = remember(backStackEntry) {
                         nav.getBackStackEntry(Dest.AUTH)
@@ -104,20 +181,21 @@ fun KonvoNavGraph() {
                 /* ---------- OTP ---------- */
                 composable(
                     Dest.OTP,
-                    enterTransition = { zoomFadeIn() },
-                    /*  special: when we go forward to CHATLIST
-                        we slide/fade OTP away; otherwise default  */
-                    exitTransition = {
-                        if (targetState.destination.route == Dest.CHATLIST) {
-                            slideOutHorizontally(
-                                targetOffsetX = { -it / 2 },
-                                animationSpec = tween(300)
-                            ) + fadeOut(tween(250))
-                        } else {
-                            zoomFadeOut()
-                        }
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { it },
+                            animationSpec = spring(stiffness = Spring.StiffnessLow)
+                        ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.96f)
                     },
-                    popExitTransition = { zoomFadeOut() }
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { -it / 2 },
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.04f)
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.04f)
+                    }
                 ) { backStackEntry ->
                     val parent = remember(backStackEntry) {
                         nav.getBackStackEntry(Dest.AUTH)
@@ -132,23 +210,42 @@ fun KonvoNavGraph() {
             composable(
                 Dest.CHATLIST,
                 enterTransition = {
-                    if (initialState.destination.route == Dest.OTP) {
-                        slideInHorizontally(
-                            initialOffsetX = { it },
-                            animationSpec = tween(350)
-                        ) + fadeIn(tween(300))
-                    } else {
-                        fadeIn()
-                    }
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = spring(stiffness = Spring.StiffnessLow)
+                    ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.92f)
                 },
-                popExitTransition = { fadeOut() }
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -it / 2 },
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.08f)
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { -it },
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                    ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 1.08f)
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.92f)
+                }
             ) { ChatListScreen(nav) }
 
             /* ---------- On‑boarding ---------- */
             composable(
                 Dest.ONBOARD,
-                enterTransition = { zoomFadeIn() },
-                popExitTransition = { zoomFadeOut() }
+                enterTransition = {
+                    fadeIn(animationSpec = tween(700, easing = FastOutSlowInEasing)) +
+                    scaleIn(initialScale = 0.92f, animationSpec = spring(stiffness = Spring.StiffnessLow))
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                    scaleOut(targetScale = 1.08f, animationSpec = spring(stiffness = Spring.StiffnessMedium))
+                }
             ) { OnboardScreen(nav) }
         }
     }

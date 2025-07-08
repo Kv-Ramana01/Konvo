@@ -17,12 +17,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,11 +36,12 @@ import androidx.navigation.NavController
 import com.airbnb.lottie.compose.*
 import com.example.konvo.R
 import com.example.konvo.navigation.Dest
+import com.example.konvo.ui.util.AnimatedGradient
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import java.time.format.TextStyle
-/* Gradient title */
 
+/* Gradient title */
 @Composable
 fun GradientText(word: String) = Text(
     text = word,
@@ -78,6 +85,7 @@ fun TypingDots() {
         Dot(scale1); Dot(scale2); Dot(scale3)
     }
 }
+
 @Composable
 fun Dot(scale: Float) = Box(
     Modifier
@@ -88,8 +96,6 @@ fun Dot(scale: Float) = Box(
 
 @Composable
 fun SplashScreen(nav: NavController) {
-
-
     val gradientBg = Brush.verticalGradient(
         colors = listOf(
             Color(0xFF001E3C),  // navy (top)
@@ -118,7 +124,6 @@ fun SplashScreen(nav: NavController) {
     /* ---------- staged entrance control ---------- */
     var show by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-
         delay(200); show = true           // start intro
         delay(2_800)                      // total splash time
         val start = if (FirebaseAuth.getInstance().currentUser == null)
@@ -127,7 +132,10 @@ fun SplashScreen(nav: NavController) {
         nav.navigate(start) {
             popUpTo(Dest.SPLASH) { inclusive = true }
             launchSingleTop = true
-        }    }
+        }
+    }
+
+    val slidingBrush = AnimatedGradient()
 
     Box(
         Modifier
@@ -141,10 +149,26 @@ fun SplashScreen(nav: NavController) {
             AnimatedVisibility(
                 show,
                 enter = slideInVertically(
-                    initialOffsetY = { -120 }, animationSpec = tween(600, easing = EaseOutCubic)
+                    initialOffsetY = { -120 },
+                    animationSpec = tween(600, easing = EaseOutCubic)
                 ) + fadeIn(tween(600))
             ) {
-                GradientText("Konvo")
+                Image(
+                    painter = painterResource(R.drawable.logo_konvo_white),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .width(500.dp)
+                        .aspectRatio(4f)
+                        .drawWithCache {
+                            onDrawWithContent {
+                                drawContext.canvas.saveLayer(size.toRect(), Paint())
+                                drawContent()
+                                drawRect(brush = slidingBrush, blendMode = BlendMode.SrcIn)
+                                drawContext.canvas.restore()
+                            }
+                        }
+                )
             }
 
             /* Divider */
@@ -172,6 +196,10 @@ fun SplashScreen(nav: NavController) {
             }
 
             Spacer(Modifier.height(32.dp))
+
+
+
+            Spacer(Modifier.height(16.dp))
 
             /* Three‑dot typing indicator */
             AnimatedVisibility(

@@ -40,7 +40,7 @@ android {
     kotlinOptions { jvmTarget = "11" }
 
     buildFeatures {
-        buildConfig = true      // <- guarantees BuildConfig.java is generated
+        buildConfig = true
         compose = true
     }
 }
@@ -56,6 +56,9 @@ dependencies {
 
     implementation("com.airbnb.android:lottie-compose:6.2.0")
 
+    implementation(platform(libs.androidx.compose.bom.v20240500))
+    androidTestImplementation(platform(libs.androidx.compose.bom.v20240500))
+
     /* ---------- AndroidX / Compose ---------- */
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -64,10 +67,9 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    //implementation(libs.androidx.material3)
+    implementation(libs.androidx.material3)
 
     implementation(platform(libs.androidx.compose.bom.v20240500))
-    implementation(libs.material3)
     implementation(libs.androidx.core.splashscreen)
 
 
@@ -109,15 +111,18 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.1.0")
 
 
-    // packaged in debug → gives you the Debug provider
+
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
 
-    // ONLY for compiling debug; **not** packaged at runtime
+
     debugCompileOnly("com.google.firebase:firebase-appcheck-playintegrity")
 
-    // packaged in release → Play‑Integrity is used in prod
+
     releaseImplementation("com.google.firebase:firebase-appcheck-playintegrity")
 
+    implementation("androidx.compose.material:material-icons-extended:1.6.1")
+    implementation(libs.androidx.foundation)
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 }
 
 configurations.all {

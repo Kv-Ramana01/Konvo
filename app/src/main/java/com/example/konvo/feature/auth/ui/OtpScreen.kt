@@ -20,6 +20,21 @@ import com.example.konvo.ui.theme.KonvoBlue
 import com.example.konvo.ui.theme.KonvoBlueDark
 import com.example.konvo.util.rememberKeyboardHider
 import kotlinx.coroutines.android.awaitFrame
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
+import com.example.konvo.R
+import com.example.konvo.ui.util.AnimatedGradient
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.saveable.rememberSaveable
 
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -34,12 +49,13 @@ fun OtpScreen(
     nav: NavController,
     vm : AuthViewModel
 ) {
-    var code by remember { mutableStateOf("") }
+    var code by rememberSaveable { mutableStateOf("") }
     val ctx = LocalContext.current
     val act = ctx.findActivity()
     val hideKeyboard = rememberKeyboardHider()
+    val anima = AnimatedGradient()
 
-    val tfColors = TextFieldDefaults.outlinedTextFieldColors(
+    val tfColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = Color.White,
         unfocusedTextColor = KonvoBlue,
         cursorColor = Color.White,
@@ -85,33 +101,97 @@ fun OtpScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-
+        // Logo with animated gradient
+        Image(
+            painter = painterResource(R.drawable.logo_konvo_white),
+            contentDescription = null,
+            modifier = Modifier
+                .width(320.dp)
+                .aspectRatio(4f)
+                .drawWithCache {
+                    onDrawWithContent {
+                        drawContext.canvas.saveLayer(size.toRect(), Paint())
+                        drawContent()
+                        drawRect(brush = anima, blendMode = BlendMode.SrcIn)
+                        drawContext.canvas.restore()
+                    }
+                }
+        )
+        Spacer(Modifier.height(32.dp))
         OutlinedTextField(
             value         = code,
             onValueChange = { if (it.length <= 6) code = it },
-            label         = { Text("Enter 6‑digit code") },
+            label         = { Text("Enter 6‑digit code", style = TextStyle(brush = anima, fontSize = 14.sp, fontWeight = FontWeight.Medium)) },
             singleLine    = true,
-            colors = tfColors,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                cursorColor = Color.White,
+                focusedBorderColor = Color.White,
+                unfocusedBorderColor = KonvoBlue.copy(alpha = 0.6f),
+                focusedLeadingIconColor = Color.White,
+                unfocusedLeadingIconColor = Color.White,
+                focusedLabelColor = Color.White,
+                unfocusedLabelColor = KonvoBlueDark.copy(alpha = 0.7f)
+            ),
+            leadingIcon = {
+                Icon(
+                    painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier.drawWithCache {
+                        onDrawWithContent {
+                            drawContext.canvas.saveLayer(size.toRect(), Paint())
+                            drawContent()
+                            drawRect(brush = anima, blendMode = BlendMode.SrcIn)
+                            drawContext.canvas.restore()
+                        }
+                    }
+                )
+            },
+            textStyle = TextStyle(
+                brush = anima,
+                fontSize = 16.sp
+            ),
             modifier      = Modifier.fillMaxWidth()
         )
-
-        Spacer(Modifier.height(16.dp))
-
+        Spacer(Modifier.height(24.dp))
         Button(
             onClick  = { vm.verifyOtp(code) },
             enabled  = code.length == 6,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Verify") }
-
-        Spacer(Modifier.height(12.dp))
-
-        TextButton(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = KonvoBlueDark,
+                contentColor = Color.White
+            ),
+            elevation = ButtonDefaults.buttonElevation(6.dp)
+        ) { Text("Verify", fontWeight = FontWeight.Bold, fontSize = 17.sp) }
+        Spacer(Modifier.height(16.dp))
+        OutlinedButton(
             enabled = vm.lastPhone != null && act != null,
-            onClick = { act?.let(vm::resendLastOtp) }
-        ) { Text("Resend code") }
-
+            onClick = { act?.let(vm::resendLastOtp) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, KonvoBlueDark),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = KonvoBlueDark
+            )
+        ) { Text("Resend code", fontWeight = FontWeight.Medium) }
         Spacer(Modifier.height(12.dp))
-
-        TextButton(onClick = { nav.popBackStack() }) { Text("Back") }
+        OutlinedButton(
+            onClick = { nav.popBackStack() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, KonvoBlueDark),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = KonvoBlueDark
+            )
+        ) { Text("Back", fontWeight = FontWeight.Medium) }
     }
 }
