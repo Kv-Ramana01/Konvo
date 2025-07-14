@@ -79,10 +79,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.example.konvo.util.rememberSlidingBrush
+import com.example.konvo.util.themeDataStore
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.graphics.luminance
@@ -97,9 +97,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.unit.IntSize
 import com.example.konvo.util.LoopingSlidingGradientBackground
 import com.example.konvo.util.DiagonalLoopingSlidingGradientBackground
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 // DataStore setup
-private val Context.themeDataStore by preferencesDataStore(name = "theme_prefs")
 private val THEME_INDEX_KEY = intPreferencesKey("theme_index")
 private val ANIMATED_THEME_KEY = booleanPreferencesKey("animated_theme_enabled")
 
@@ -296,6 +298,40 @@ fun ChatListScreen(nav: NavController) {
     // Animated theme toggle state
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    // Real-time Firestore chat list
+    val userId = Firebase.auth.currentUser?.uid
+    var chats by remember { mutableStateOf<List<ChatItem>>(emptyList()) }
+    var listenerRegistration by remember { mutableStateOf<com.google.firebase.firestore.ListenerRegistration?>(null) }
+
+    DisposableEffect(userId) {
+        listenerRegistration?.remove()
+        if (userId != null) {
+            val db = FirebaseFirestore.getInstance()
+            listenerRegistration = db.collection("chats").document(userId).collection("chats")
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot != null) {
+                        chats = snapshot.documents.mapNotNull { doc ->
+                            val chatName = doc.id
+                            val lastMessage = doc.getString("lastMessage") ?: ""
+                            val time = doc.getString("lastMessageTime") ?: ""
+                            val unread = (doc.getLong("unreadCount") ?: 0L).toInt()
+                            DMChat(chatName, lastMessage, time, unread)
+                        }
+                    }
+                }
+        }
+        onDispose {
+            listenerRegistration?.remove()
+        }
+    }
+
+    // Filter chats by search
+    val filteredChats = chats.filter {
+        search.isBlank() ||
+                (it is GroupChat && it.groupName.contains(search, true)) ||
+                (it is DMChat && it.userName.contains(search, true))
+    }
+
     // Mock user profile
     val userName = "John Doe"
     val userOnline = true
@@ -303,45 +339,6 @@ fun ChatListScreen(nav: NavController) {
         userName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("")
             .uppercase()
     val userColor = Color(0xFF4FACFE)
-
-    // Mock chat data
-    val chats = listOf(
-        GroupChat("Study Group", "See you at 7pm!", "09:12", 2),
-        DMChat("Alice", "Got it, thanks!", "08:45", 0),
-        GroupChat("Family", "Dinner's ready!", "08:30", 1),
-        DMChat("Bob", "Let's catch up soon.", "Yesterday", 3),
-        DMChat("Charlie", "👍", "Yesterday", 0),
-        GroupChat("Project X", "Final version sent.", "Mon", 0),
-        // Add more mock chats for scroll test
-        DMChat("David", "See you tomorrow!", "Sun", 1),
-        GroupChat("Work", "Meeting at 10am", "Sun", 0),
-        DMChat("Eve", "Check this out!", "Sat", 2),
-        GroupChat("Friends", "Movie night?", "Fri", 0),
-        DMChat("Frank", "Thanks!", "Thu", 0),
-        GroupChat("Gaming", "GG!", "Wed", 4),
-        DMChat("Grace", "On my way.", "Tue", 0),
-        GroupChat("Book Club", "Next book?", "Mon", 0),
-        DMChat("Hannah", "Congrats!", "Sun", 1),
-        GroupChat("Travel", "Tickets booked.", "Sat", 0),
-        DMChat("Ivan", "Happy Birthday!", "Fri", 0),
-        GroupChat("Music", "New album out!", "Thu", 2),
-        DMChat("Judy", "See you soon.", "Wed", 0),
-        GroupChat("Sports", "Game tonight!", "Tue", 3),
-        DMChat("Kevin", "Let's meet.", "Mon", 0),
-        GroupChat("Family 2", "Picnic this weekend?", "Sun", 0),
-        DMChat("Laura", "Call me.", "Sat", 0),
-        GroupChat("Dev Team", "Code review done.", "Fri", 1),
-        DMChat("Mallory", "Lunch?", "Thu", 0),
-        GroupChat("Startup", "Pitch deck ready.", "Wed", 0),
-        DMChat("Nina", "Awesome!", "Tue", 0),
-        GroupChat("Volunteers", "Event tomorrow.", "Mon", 2),
-        DMChat("Oscar", "Good luck!", "Sun", 0),
-        GroupChat("Neighbors", "Party at 8!", "Sat", 0)
-    ).filter {
-        search.isBlank() ||
-                (it is GroupChat && it.groupName.contains(search, true)) ||
-                (it is DMChat && it.userName.contains(search, true))
-    }
 
     val gradientColors = when (theme.name) {
         "Galactic Aurora" -> listOf(
@@ -643,7 +640,7 @@ fun ChatListScreen(nav: NavController) {
                                 .padding(vertical = 12.dp, horizontal = 0.dp)
                         )
                         // Chat List
-                        if (chats.isEmpty()) {
+                        if (filteredChats.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
@@ -672,7 +669,7 @@ fun ChatListScreen(nav: NavController) {
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
-                                items(chats) { chat ->
+                                items(filteredChats) { chat ->
                                     ChatListItem(
                                         chat = chat,
                                         groupAccent = theme.groupAccent,
@@ -681,7 +678,14 @@ fun ChatListScreen(nav: NavController) {
                                         textPrimary = theme.textPrimary,
                                         textSecondary = theme.textSecondary,
                                         card = theme.card,
-                                        onClick = { /* TODO: Open chat */ }
+                                        onClick = { 
+                                            val chatName = when (chat) {
+                                                is GroupChat -> chat.groupName
+                                                is DMChat -> chat.userName
+                                            }
+                                            val isGroupChat = chat is GroupChat
+                                            nav.navigate("chat/${chat.id}/${chatName}/${isGroupChat}")
+                                        }
                                     )
                                 }
                             }
@@ -894,7 +898,7 @@ fun ChatListScreen(nav: NavController) {
                             .padding(vertical = 12.dp, horizontal = 0.dp)
                     )
                     // Chat List
-                    if (chats.isEmpty()) {
+                    if (filteredChats.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
@@ -923,7 +927,7 @@ fun ChatListScreen(nav: NavController) {
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(chats) { chat ->
+                            items(filteredChats) { chat ->
                                 ChatListItem(
                                     chat = chat,
                                     groupAccent = theme.groupAccent,
@@ -932,7 +936,14 @@ fun ChatListScreen(nav: NavController) {
                                     textPrimary = theme.textPrimary,
                                     textSecondary = theme.textSecondary,
                                     card = theme.card,
-                                    onClick = { /* TODO: Open chat */ }
+                                    onClick = { 
+                                        val chatName = when (chat) {
+                                            is GroupChat -> chat.groupName
+                                            is DMChat -> chat.userName
+                                        }
+                                        val isGroupChat = chat is GroupChat
+                                        nav.navigate("chat/${chat.id}/${chatName}/${isGroupChat}")
+                                    }
                                 )
                             }
                         }
@@ -1105,6 +1116,7 @@ fun ChatListItem(
     textPrimary: Color,
     textSecondary: Color,
     card: Color,
+    isGalacticMode: Boolean = false,
     onClick: () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
@@ -1128,7 +1140,6 @@ fun ChatListItem(
     SwipeToDismissBox(
         state = dismissState,
         backgroundContent = {
-            // Show action backgrounds for swipe directions
             Row(
                 Modifier
                     .fillMaxSize()
@@ -1168,7 +1179,6 @@ fun ChatListItem(
                         Row(
                             Modifier
                                 .fillMaxSize()
-                                .background(card)
                                 .padding(end = 12.dp),
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
@@ -1217,15 +1227,15 @@ fun ChatListItem(
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = card,
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
+                tonalElevation = if (isGalacticMode) 0.dp else 2.dp,
+                shadowElevation = if (isGalacticMode) 0.dp else 2.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onClick() }
             ) {
                 Row(
                     Modifier
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .then(if (isGalacticMode) Modifier.padding(horizontal = 4.dp, vertical = 4.dp) else Modifier.padding(horizontal = 12.dp, vertical = 10.dp)),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Avatar

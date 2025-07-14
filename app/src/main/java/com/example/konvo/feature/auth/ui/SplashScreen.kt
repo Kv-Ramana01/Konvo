@@ -40,6 +40,7 @@ import com.example.konvo.ui.util.AnimatedGradient
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import java.time.format.TextStyle
+import android.util.Log
 
 /* Gradient title */
 @Composable
@@ -126,6 +127,7 @@ fun SplashScreen(nav: NavController) {
     LaunchedEffect(Unit) {
         delay(200); show = true           // start intro
         delay(2_800)                      // total splash time
+        Log.d("SplashScreen", "currentUser: ${FirebaseAuth.getInstance().currentUser}")
         val start = if (FirebaseAuth.getInstance().currentUser == null)
             Dest.AUTH          // shows Login flow
         else Dest.CHATLIST     // jumps straight in

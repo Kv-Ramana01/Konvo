@@ -47,7 +47,7 @@ android {
 
 dependencies {
 
-    implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
+    implementation(platform(libs.firebase.bom))
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 
@@ -92,10 +92,10 @@ dependencies {
 
     /* ---------- Firebase ---------- */
 
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-storage-ktx")
-    implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation(libs.google.firebase.auth.ktx)
+    implementation(libs.google.firebase.firestore.ktx)
+    implementation(libs.google.firebase.storage.ktx)
+    implementation(libs.google.firebase.messaging.ktx)
 
 
     implementation(libs.coil.compose)
@@ -113,16 +113,15 @@ dependencies {
 
 
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
-
-
-    debugCompileOnly("com.google.firebase:firebase-appcheck-playintegrity")
-
-
+    debugImplementation("com.google.firebase:firebase-appcheck-playintegrity")
     releaseImplementation("com.google.firebase:firebase-appcheck-playintegrity")
+    implementation("com.google.firebase:firebase-appcheck")
+
 
     implementation("androidx.compose.material:material-icons-extended:1.6.1")
     implementation(libs.androidx.foundation)
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
 }
 
 configurations.all {
