@@ -55,6 +55,9 @@ import com.example.konvo.util.rememberKeyboardHider
 import com.example.konvo.util.rememberCosmicBrushes
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.FirebaseFirestore
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +74,7 @@ fun LoginScreen(
     val hideKeyboard = rememberKeyboardHider()
     // Hoist the rememberSlidingBrush() call here
     val slidingBrush = AnimatedGradient()
+    val scope = rememberCoroutineScope()
 
 
     LaunchedEffect(Unit) {
@@ -79,9 +83,33 @@ fun LoginScreen(
                 AuthEvent.Success -> {
                     hideKeyboard()
                     awaitFrame()
-                    nav.navigate(Dest.CHATLIST) {
-                        popUpTo(0)
-                        launchSingleTop = true
+                    // --- Google login fix: check Firestore for profile ---
+                    val user = Firebase.auth.currentUser
+                    if (user != null) {
+                        val db = FirebaseFirestore.getInstance()
+                        db.collection("users").document(user.uid).get().addOnSuccessListener { doc ->
+                            if (doc.exists()) {
+                                nav.navigate(Dest.CHATLIST) {
+                                    popUpTo(0)
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                nav.navigate(Dest.ONBOARD) {
+                                    popUpTo(0)
+                                    launchSingleTop = true
+                                }
+                            }
+                        }.addOnFailureListener {
+                            nav.navigate(Dest.ONBOARD) {
+                                popUpTo(0)
+                                launchSingleTop = true
+                            }
+                        }
+                    } else {
+                        nav.navigate(Dest.ONBOARD) {
+                            popUpTo(0)
+                            launchSingleTop = true
+                        }
                     }
                 }
 

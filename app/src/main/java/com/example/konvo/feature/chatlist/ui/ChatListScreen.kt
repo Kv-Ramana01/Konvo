@@ -32,10 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.konvo.R
-import com.example.konvo.ui.theme.KonvoBlue
-import com.example.konvo.ui.theme.KonvoBlueDark
-import com.example.konvo.ui.theme.KonvoNavyLight
-import com.example.konvo.ui.theme.KonvoOrangeDark
+import com.example.konvo.ui.theme.KonvoTheme
+import com.example.konvo.ui.theme.konvoThemes
 import androidx.navigation.NavController
 import com.example.konvo.feature.auth.vm.signOutEverywhere
 import com.example.konvo.navigation.Dest
@@ -100,6 +98,12 @@ import com.example.konvo.util.DiagonalLoopingSlidingGradientBackground
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.AlternateEmail
+import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // DataStore setup
 private val THEME_INDEX_KEY = intPreferencesKey("theme_index")
@@ -120,159 +124,24 @@ suspend fun readThemePrefs(context: Context): Pair<Int, Boolean> {
 }
 
 // Mock data classes
-sealed class ChatItem(val id: String)
+sealed class ChatItem(open val id: String)
 data class GroupChat(
     val groupName: String,
     val lastMessage: String,
-    val time: String,
+    val lastMessageTime: String,
     val unread: Int
 ) : ChatItem(groupName)
 data class DMChat(
-    val userName: String,
+    override val id: String, // chatId
+    val userName: String, // display name
+    val userUsername: String, // username
     val lastMessage: String,
-    val time: String,
-    val unread: Int
-) : ChatItem(userName)
+    val lastMessageTime: String,
+    val unread: Int,
+    val otherUserId: String // <-- add this
+) : ChatItem(id)
 
-// Theme data class
-private data class KonvoTheme(
-    val name: String,
-    val background: Color,
-    val card: Color,
-    val groupAccent: Color,
-    val dmAccent: Color,
-    val unreadBadge: Color,
-    val isDark: Boolean,
-    val animatedBackground: Boolean = false
-) {
-    // Automatic contrast text colors
-    val textPrimary: Color
-        get() = if (background.luminance() > 0.5f) Color(0xFF1A1A1A) else Color.White
-    val textSecondary: Color
-        get() = if (background.luminance() > 0.5f) Color(0xFF6B6B6B) else Color(0xFFB0B3C6)
-    // Dialog background: neutral and readable
-    val dialogBackground: Color
-        get() = if (background.luminance() > 0.5f) Color.White.copy(alpha = 0.97f) else Color(0xFF18122B)
-}
-
-private val themes = listOf(
-    KonvoTheme(
-        name = "Classic Dark",
-        background = Color(0xFF10142A),
-        card = Color(0xFF23264A),
-        groupAccent = KonvoBlue,
-        dmAccent = KonvoOrangeDark,
-        unreadBadge = Color(0xFF9B42F2),
-        isDark = true
-    ),
-    KonvoTheme(
-        name = "Classic Light",
-        background = Color(0xFFF7F8FA),
-        card = Color.White,
-        groupAccent = KonvoBlueDark,
-        dmAccent = KonvoBlue,
-        unreadBadge = KonvoBlueDark,
-        isDark = false
-    ),
-    KonvoTheme(
-        name = "Neon",
-        background = Color(0xFF18122B),
-        card = Color(0xFF393053),
-        groupAccent = Color(0xFF00FFD0),
-        dmAccent = Color(0xFF00B4FF),
-        unreadBadge = Color(0xFFFF00E0),
-        isDark = true
-    ),
-    KonvoTheme(
-        name = "Pastel",
-        background = Color(0xFFF8E8EE),
-        card = Color(0xFFFDEBED),
-        groupAccent = Color(0xFFB1AFFF),
-        dmAccent = Color(0xFFFFB3B3),
-        unreadBadge = Color(0xFFB1AFFF),
-        isDark = false
-    ),
-    KonvoTheme(
-        name = "Sunset",
-        background = Color(0xFFFFE5D9),
-        card = Color(0xFFFFB4A2),
-        groupAccent = Color(0xFFFF6F61),
-        dmAccent = Color(0xFF6B705C),
-        unreadBadge = Color(0xFFFF6F61),
-        isDark = false
-    ),
-    // --- New Ultra Aesthetic Galactic Themes ---
-    KonvoTheme(
-        name = "Galactic Aurora",
-        background = Color(0xFF0B0033),
-        card = Color(0xFF3700B3),
-        groupAccent = Color(0xFF00FFB3),
-        dmAccent = Color(0xFF00CFFF),
-        unreadBadge = Color(0xFFB388FF),
-        isDark = true,
-        animatedBackground = true
-    ),
-    KonvoTheme(
-        name = "Cosmic Sunset",
-        background = Color(0xFF1A0A2D),
-        card = Color(0xFF3D155F),
-        groupAccent = Color(0xFFFF6F91),
-        dmAccent = Color(0xFFFF9671),
-        unreadBadge = Color(0xFFFFC75F),
-        isDark = true,
-        animatedBackground = true
-    ),
-    KonvoTheme(
-        name = "Stellar Ice",
-        background = Color(0xFF0F2027),
-        card = Color(0xFF2C5364),
-        groupAccent = Color(0xFF36D1C4),
-        dmAccent = Color(0xFF5B86E5),
-        unreadBadge = Color(0xFFB2FEFA),
-        isDark = true,
-        animatedBackground = true
-    ),
-    KonvoTheme(
-        name = "Cyberpunk",
-        background = Color(0xFF1A1A2E),
-        card = Color(0xFF16213E),
-        groupAccent = Color(0xFFFF2E63),
-        dmAccent = Color(0xFF08D9D6),
-        unreadBadge = Color(0xFFFFC300),
-        isDark = true,
-        animatedBackground = true
-    ),
-    KonvoTheme(
-        name = "Nebula Dream",
-        background = Color(0xFF232526),
-        card = Color(0xFF414345),
-        groupAccent = Color(0xFFDA22FF),
-        dmAccent = Color(0xFF9733EE),
-        unreadBadge = Color(0xFF56CCF2),
-        isDark = true,
-        animatedBackground = true
-    ),
-    KonvoTheme(
-        name = "Solar Flare",
-        background = Color(0xFFFF512F),
-        card = Color(0xFFDD2476),
-        groupAccent = Color(0xFFFFC837),
-        dmAccent = Color(0xFFFF8008),
-        unreadBadge = Color(0xFFFF5F6D),
-        isDark = false,
-        animatedBackground = true
-    ),
-    KonvoTheme(
-        name = "Aurora Borealis",
-        background = Color(0xFF232526),
-        card = Color(0xFF1CD8D2),
-        groupAccent = Color(0xFF93F9B9),
-        dmAccent = Color(0xFF1FA2FF),
-        unreadBadge = Color(0xFF38F9D7),
-        isDark = false,
-        animatedBackground = true
-    )
-)
+// Remove local KonvoTheme data class and themes list, use konvoThemes instead
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -293,10 +162,11 @@ fun ChatListScreen(nav: NavController) {
         saveThemePrefs(context, themeIndex, animatedThemeEnabled)
     }
     var showThemeDialog by remember { mutableStateOf(false) }
-    val theme = themes[themeIndex]
+    val theme = konvoThemes[themeIndex]
     var search by rememberSaveable { mutableStateOf("") }
     // Animated theme toggle state
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showProfileDialog by remember { mutableStateOf(false) }
 
     // Real-time Firestore chat list
     val userId = Firebase.auth.currentUser?.uid
@@ -307,15 +177,18 @@ fun ChatListScreen(nav: NavController) {
         listenerRegistration?.remove()
         if (userId != null) {
             val db = FirebaseFirestore.getInstance()
-            listenerRegistration = db.collection("chats").document(userId).collection("chats")
+            listenerRegistration = db.collection("users").document(userId).collection("chats")
                 .addSnapshotListener { snapshot, _ ->
                     if (snapshot != null) {
                         chats = snapshot.documents.mapNotNull { doc ->
-                            val chatName = doc.id
+                            val chatId = doc.id
+                            val userName = doc.getString("userName") ?: "Unknown"
+                            val userUsername = doc.getString("userUsername") ?: userName
                             val lastMessage = doc.getString("lastMessage") ?: ""
-                            val time = doc.getString("lastMessageTime") ?: ""
+                            val lastMessageTime = doc.getString("lastMessageTime") ?: ""
                             val unread = (doc.getLong("unreadCount") ?: 0L).toInt()
-                            DMChat(chatName, lastMessage, time, unread)
+                            val otherUserId = doc.getString("otherUserId") ?: ""
+                            DMChat(chatId, userName, userUsername, lastMessage, lastMessageTime, unread, otherUserId)
                         }
                     }
                 }
@@ -325,8 +198,17 @@ fun ChatListScreen(nav: NavController) {
         }
     }
 
+    // Sort chats by lastMessageTime descending (most recent first)
+    val sortedChats = chats.sortedByDescending {
+        when (it) {
+            is DMChat -> it.lastMessageTime.toLongOrNull() ?: 0L
+            is GroupChat -> it.lastMessageTime.toLongOrNull() ?: 0L
+            else -> 0L
+        }
+    }
+
     // Filter chats by search
-    val filteredChats = chats.filter {
+    val filteredChats = sortedChats.filter {
         search.isBlank() ||
                 (it is GroupChat && it.groupName.contains(search, true)) ||
                 (it is DMChat && it.userName.contains(search, true))
@@ -410,7 +292,7 @@ fun ChatListScreen(nav: NavController) {
                     label = "fab_scale"
                 )
                 FloatingActionButton(
-                    onClick = { /* TODO: New chat */ },
+                    onClick = { nav.navigate(com.example.konvo.navigation.Dest.USER_SEARCH) },
                     containerColor = theme.groupAccent,
                     modifier = Modifier.scale(scale)
                 ) {
@@ -498,6 +380,7 @@ fun ChatListScreen(nav: NavController) {
                                     shape = CircleShape,
                                     color = userColor.copy(alpha = 0.1f),
                                     modifier = Modifier.size(36.dp)
+                                        .clickable { showProfileDialog = true }
                                 ) {
                                     Text(
                                         userInitials,
@@ -529,7 +412,7 @@ fun ChatListScreen(nav: NavController) {
                                 title = { Text("Choose Theme", fontWeight = FontWeight.Bold) },
                                 text = {
                                     Column {
-                                        themes.forEachIndexed { idx, t ->
+                                        konvoThemes.forEachIndexed { idx, t ->
                                             Row(
                                                 Modifier
                                                     .fillMaxWidth()
@@ -561,7 +444,7 @@ fun ChatListScreen(nav: NavController) {
                                             }
                                         }
                                         // Add the GALACTIC MODE toggle below the theme list if the selected theme supports animation
-                                        if (themes[themeIndex].animatedBackground) {
+                                        if (konvoThemes[themeIndex].animatedBackground) {
                                             Spacer(Modifier.height(12.dp))
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -571,7 +454,7 @@ fun ChatListScreen(nav: NavController) {
                                                 Icon(
                                                     Icons.Default.AutoAwesome,
                                                     contentDescription = null,
-                                                    tint = themes[themeIndex].groupAccent,
+                                                    tint = konvoThemes[themeIndex].groupAccent,
                                                     modifier = Modifier.size(18.dp)
                                                         .shadow(2.dp, shape = CircleShape)
                                                 )
@@ -583,9 +466,9 @@ fun ChatListScreen(nav: NavController) {
                                                     style = LocalTextStyle.current.copy(
                                                         brush = Brush.linearGradient(
                                                             colors = listOf(
-                                                                themes[themeIndex].groupAccent,
-                                                                themes[themeIndex].dmAccent,
-                                                                themes[themeIndex].unreadBadge
+                                                                konvoThemes[themeIndex].groupAccent,
+                                                                konvoThemes[themeIndex].dmAccent,
+                                                                konvoThemes[themeIndex].unreadBadge
                                                             )
                                                         )
                                                     ),
@@ -599,8 +482,8 @@ fun ChatListScreen(nav: NavController) {
                                                     checked = animatedThemeEnabled,
                                                     onCheckedChange = { animatedThemeEnabled = it },
                                                     colors = SwitchDefaults.colors(
-                                                        checkedThumbColor = themes[themeIndex].groupAccent,
-                                                        uncheckedThumbColor = themes[themeIndex].textSecondary
+                                                        checkedThumbColor = konvoThemes[themeIndex].groupAccent,
+                                                        uncheckedThumbColor = konvoThemes[themeIndex].textSecondary
                                                     ),
                                                     modifier = Modifier.scale(0.95f)
                                                 )
@@ -681,10 +564,15 @@ fun ChatListScreen(nav: NavController) {
                                         onClick = { 
                                             val chatName = when (chat) {
                                                 is GroupChat -> chat.groupName
-                                                is DMChat -> chat.userName
+                                                is DMChat -> chat.userUsername
                                             }
                                             val isGroupChat = chat is GroupChat
-                                            nav.navigate("chat/${chat.id}/${chatName}/${isGroupChat}")
+                                            val myUid = userId ?: ""
+                                            val otherUid = when (chat) {
+                                                is GroupChat -> "group"
+                                                is DMChat -> chat.otherUserId
+                                            }
+                                            nav.navigate("chat/$myUid/$otherUid/$chatName/$isGroupChat")
                                         }
                                     )
                                 }
@@ -756,6 +644,7 @@ fun ChatListScreen(nav: NavController) {
                                 shape = CircleShape,
                                 color = userColor.copy(alpha = 0.1f),
                                 modifier = Modifier.size(36.dp)
+                                    .clickable { showProfileDialog = true }
                             ) {
                                 Text(
                                     userInitials,
@@ -787,7 +676,7 @@ fun ChatListScreen(nav: NavController) {
                             title = { Text("Choose Theme", fontWeight = FontWeight.Bold) },
                             text = {
                                 Column {
-                                    themes.forEachIndexed { idx, t ->
+                                    konvoThemes.forEachIndexed { idx, t ->
                                         Row(
                                             Modifier
                                                 .fillMaxWidth()
@@ -819,7 +708,7 @@ fun ChatListScreen(nav: NavController) {
                                         }
                                     }
                                     // Add the GALACTIC MODE toggle below the theme list if the selected theme supports animation
-                                    if (themes[themeIndex].animatedBackground) {
+                                    if (konvoThemes[themeIndex].animatedBackground) {
                                         Spacer(Modifier.height(12.dp))
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -829,7 +718,7 @@ fun ChatListScreen(nav: NavController) {
                                             Icon(
                                                 Icons.Default.AutoAwesome,
                                                 contentDescription = null,
-                                                tint = themes[themeIndex].groupAccent,
+                                                tint = konvoThemes[themeIndex].groupAccent,
                                                 modifier = Modifier.size(18.dp)
                                                     .shadow(2.dp, shape = CircleShape)
                                             )
@@ -841,9 +730,9 @@ fun ChatListScreen(nav: NavController) {
                                                 style = LocalTextStyle.current.copy(
                                                     brush = Brush.linearGradient(
                                                         colors = listOf(
-                                                            themes[themeIndex].groupAccent,
-                                                            themes[themeIndex].dmAccent,
-                                                            themes[themeIndex].unreadBadge
+                                                            konvoThemes[themeIndex].groupAccent,
+                                                            konvoThemes[themeIndex].dmAccent,
+                                                            konvoThemes[themeIndex].unreadBadge
                                                         )
                                                     )
                                                 ),
@@ -857,8 +746,8 @@ fun ChatListScreen(nav: NavController) {
                                                 checked = animatedThemeEnabled,
                                                 onCheckedChange = { animatedThemeEnabled = it },
                                                 colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = themes[themeIndex].groupAccent,
-                                                    uncheckedThumbColor = themes[themeIndex].textSecondary
+                                                    checkedThumbColor = konvoThemes[themeIndex].groupAccent,
+                                                    uncheckedThumbColor = konvoThemes[themeIndex].textSecondary
                                                 ),
                                                 modifier = Modifier.scale(0.95f)
                                             )
@@ -939,10 +828,15 @@ fun ChatListScreen(nav: NavController) {
                                     onClick = { 
                                         val chatName = when (chat) {
                                             is GroupChat -> chat.groupName
-                                            is DMChat -> chat.userName
+                                            is DMChat -> chat.userUsername
                                         }
                                         val isGroupChat = chat is GroupChat
-                                        nav.navigate("chat/${chat.id}/${chatName}/${isGroupChat}")
+                                        val myUid = userId ?: ""
+                                        val otherUid = when (chat) {
+                                            is GroupChat -> "group"
+                                            is DMChat -> chat.otherUserId
+                                        }
+                                        nav.navigate("chat/$myUid/$otherUid/$chatName/$isGroupChat")
                                     }
                                 )
                             }
@@ -1032,6 +926,11 @@ fun ChatListScreen(nav: NavController) {
                     shape = RoundedCornerShape(24.dp),
                     containerColor = Color.Transparent
                 )
+            }
+            if (showProfileDialog) {
+                Dialog(onDismissRequest = { showProfileDialog = false }) {
+                    ProfileScreen(onClose = { showProfileDialog = false })
+                }
             }
         }
     }
@@ -1294,11 +1193,23 @@ fun ChatListItem(
                     Spacer(Modifier.width(8.dp))
                     // Time & Unread
                     Column(horizontalAlignment = Alignment.End) {
+                        val formattedTime = try {
+                            val rawTime = when (chat) {
+                                is GroupChat -> chat.lastMessageTime
+                                is DMChat -> chat.lastMessageTime
+                                else -> ""
+                            }
+                            if (rawTime.isNotBlank() && rawTime.length > 8) {
+                                val ts = rawTime.toLongOrNull() ?: 0L
+                                if (ts > 1000000000000L) {
+                                    SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(ts))
+                                } else {
+                                    rawTime
+                                }
+                            } else rawTime
+                        } catch (e: Exception) { "" }
                         Text(
-                            when (chat) {
-                                is GroupChat -> chat.time
-                                is DMChat -> chat.time
-                            },
+                            formattedTime,
                             color = textSecondary,
                             fontSize = 12.sp
                         )
@@ -1347,7 +1258,12 @@ fun ChatListItem(
                 TextButton(onClick = {
                     showDeleteDialog = false
                     haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    // TODO: Delete logic
+                    // Delete chatlist entry for this user
+                    val db = FirebaseFirestore.getInstance()
+                    val userId = FirebaseAuth.getInstance().currentUser?.uid
+                    if (userId != null) {
+                        db.collection("users").document(userId).collection("chats").document(chat.id).delete()
+                    }
                 }) { Text("Delete", color = Color.Red) }
             },
             dismissButton = {
@@ -1356,5 +1272,148 @@ fun ChatListItem(
                 }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@Composable
+fun ProfileScreen(onClose: () -> Unit) {
+    val user = Firebase.auth.currentUser
+    val uid = user?.uid
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var usernameAvailable by remember { mutableStateOf<Boolean?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    var loaded by remember { mutableStateOf(false) }
+
+    // Load profile on open
+    LaunchedEffect(uid) {
+        if (uid != null) {
+            loading = true
+            val db = FirebaseFirestore.getInstance()
+            db.collection("users").document(uid).get().addOnSuccessListener { doc ->
+                name = doc.getString("name") ?: ""
+                username = doc.getString("username") ?: ""
+                loaded = true
+                loading = false
+            }.addOnFailureListener {
+                error = "Failed to load profile: ${it.message}"
+                loading = false
+            }
+        }
+    }
+
+    fun checkUsernameAvailability(username: String) {
+        if (username.isBlank()) {
+            usernameAvailable = null
+            return
+        }
+        loading = true
+        error = ""
+        scope.launch {
+            val db = FirebaseFirestore.getInstance()
+            val query = db.collection("users").whereEqualTo("username", username).get().await()
+            usernameAvailable = query.isEmpty || (query.documents.firstOrNull()?.id == uid)
+            loading = false
+        }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        tonalElevation = 8.dp,
+        shadowElevation = 8.dp,
+        modifier = Modifier.padding(16.dp)
+    ) {
+        Column(
+            Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Edit Profile", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Spacer(Modifier.height(24.dp))
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF4FACFE),
+                    unfocusedBorderColor = Color.LightGray
+                )
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = username,
+                onValueChange = {
+                    username = it
+                    usernameAvailable = null
+                    if (it.length >= 3) checkUsernameAvailability(it)
+                },
+                label = { Text("Username") },
+                leadingIcon = { Icon(Icons.Default.AlternateEmail, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF4FACFE),
+                    unfocusedBorderColor = Color.LightGray
+                )
+            )
+            if (loading && !loaded) {
+                CircularProgressIndicator(Modifier.padding(top = 8.dp))
+            } else if (username.isNotBlank() && username.length >= 3) {
+                when (usernameAvailable) {
+                    true -> Text("Username available", color = Color(0xFF4CAF50), modifier = Modifier.padding(top = 8.dp))
+                    false -> Text("Username taken", color = Color.Red, modifier = Modifier.padding(top = 8.dp))
+                    null -> {}
+                }
+            }
+            if (error.isNotBlank()) {
+                Text(error, color = Color.Red, modifier = Modifier.padding(top = 8.dp))
+            }
+            Spacer(Modifier.height(24.dp))
+            Row {
+                Button(
+                    onClick = onClose,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray)
+                ) { Text("Cancel", color = Color.Black) }
+                Spacer(Modifier.width(16.dp))
+                Button(
+                    onClick = {
+                        if (uid == null) {
+                            error = "User not signed in."
+                            return@Button
+                        }
+                        if (name.isBlank() || username.isBlank() || usernameAvailable != true) {
+                            error = "Please enter a valid name and available username."
+                            return@Button
+                        }
+                        loading = true
+                        error = ""
+                        scope.launch {
+                            val db = FirebaseFirestore.getInstance()
+                            db.collection("users").document(uid).update(
+                                mapOf(
+                                    "name" to name,
+                                    "username" to username
+                                )
+                            ).addOnSuccessListener {
+                                onClose()
+                            }.addOnFailureListener {
+                                error = "Failed to update profile: ${it.message}"
+                                loading = false
+                            }
+                        }
+                    },
+                    enabled = name.isNotBlank() && username.isNotBlank() && usernameAvailable == true && !loading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4FACFE))
+                ) {
+                    if (loading && loaded) CircularProgressIndicator(color = Color.White, modifier = Modifier.height(20.dp))
+                    else Text("Save", color = Color.White)
+                }
+            }
+        }
     }
 }

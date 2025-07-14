@@ -38,6 +38,7 @@ import com.example.konvo.R
 import com.example.konvo.navigation.Dest
 import com.example.konvo.ui.util.AnimatedGradient
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import java.time.format.TextStyle
 import android.util.Log
@@ -128,12 +129,34 @@ fun SplashScreen(nav: NavController) {
         delay(200); show = true           // start intro
         delay(2_800)                      // total splash time
         Log.d("SplashScreen", "currentUser: ${FirebaseAuth.getInstance().currentUser}")
-        val start = if (FirebaseAuth.getInstance().currentUser == null)
-            Dest.AUTH          // shows Login flow
-        else Dest.CHATLIST     // jumps straight in
-        nav.navigate(start) {
-            popUpTo(Dest.SPLASH) { inclusive = true }
-            launchSingleTop = true
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user == null) {
+            nav.navigate(Dest.AUTH) {
+                popUpTo(Dest.SPLASH) { inclusive = true }
+                launchSingleTop = true
+            }
+        } else {
+            // Check Firestore for profile
+            val db = FirebaseFirestore.getInstance()
+            db.collection("users").document(user.uid).get().addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    nav.navigate(Dest.CHATLIST) {
+                        popUpTo(Dest.SPLASH) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                } else {
+                    nav.navigate(Dest.ONBOARD) {
+                        popUpTo(Dest.SPLASH) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            }.addOnFailureListener {
+                // fallback: go to onboarding if error
+                nav.navigate(Dest.ONBOARD) {
+                    popUpTo(Dest.SPLASH) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
         }
     }
 

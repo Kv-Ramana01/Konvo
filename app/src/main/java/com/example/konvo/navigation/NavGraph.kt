@@ -33,7 +33,8 @@ object Dest {
     const val PHONE    = "phone"
     const val OTP      = "otp"
     const val CHATLIST = "chatlist"
-    const val CHAT     = "chat/{chatId}/{chatName}/{isGroupChat}"
+    const val CHAT     = "chat/{myUid}/{otherUid}/{chatName}/{isGroupChat}"
+    const val USER_SEARCH = "user_search"
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -237,6 +238,37 @@ fun KonvoNavGraph() {
                 }
             ) { ChatListScreen(nav) }
 
+            /* ---------- User Search ---------- */
+            composable(
+                Dest.USER_SEARCH,
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = spring(stiffness = Spring.StiffnessLow)
+                    ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.92f)
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -it / 2 },
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.08f)
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { -it },
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                    ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 1.08f)
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.92f)
+                }
+            ) { backStackEntry ->
+                com.example.konvo.feature.user.UserSearchScreen(nav)
+            }
+
             /* ---------- Chat Screen ---------- */
             composable(
                 Dest.CHAT,
@@ -265,10 +297,11 @@ fun KonvoNavGraph() {
                     ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.96f)
                 }
             ) { backStackEntry ->
-                val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+                val myUid = backStackEntry.arguments?.getString("myUid") ?: ""
+                val otherUid = backStackEntry.arguments?.getString("otherUid") ?: ""
                 val chatName = backStackEntry.arguments?.getString("chatName") ?: ""
                 val isGroupChat = backStackEntry.arguments?.getString("isGroupChat")?.toBoolean() ?: false
-                ChatScreen(nav, chatId, chatName, isGroupChat)
+                ChatScreen(nav, myUid, otherUid, chatName, isGroupChat)
             }
 
             /* ---------- On‑boarding ---------- */
