@@ -20,6 +20,7 @@ import com.example.konvo.feature.auth.ui.*
 import com.example.konvo.feature.auth.vm.AuthViewModel
 import com.example.konvo.feature.chatlist.ui.ChatListScreen
 import com.example.konvo.feature.chat.ui.ChatScreen
+import com.example.konvo.feature.settings.ui.ProfileSettingsScreen
 import com.example.konvo.ui.theme.transition.*
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
@@ -35,6 +36,7 @@ object Dest {
     const val CHATLIST = "chatlist"
     const val CHAT     = "chat/{myUid}/{otherUid}/{chatName}/{isGroupChat}"
     const val USER_SEARCH = "user_search"
+    const val PROFILE_SETTINGS = "profile_settings"
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -316,6 +318,41 @@ fun KonvoNavGraph() {
                     scaleOut(targetScale = 1.08f, animationSpec = spring(stiffness = Spring.StiffnessMedium))
                 }
             ) { OnboardScreen(nav) }
+            
+            /* ---------- Profile Settings ---------- */
+            composable(
+                Dest.PROFILE_SETTINGS,
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = spring(stiffness = Spring.StiffnessLow)
+                    ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.96f)
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -it / 2 },
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 1.04f)
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { -it },
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                    ) + fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 1.04f)
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.96f)
+                }
+            ) { 
+                println("[NavGraph] Showing ProfileSettingsScreen")
+                ProfileSettingsScreen(
+                    navController = nav,
+                    onBackPressed = { nav.popBackStack() }
+                )
+            }
         }
     }
 }

@@ -36,6 +36,7 @@ import com.example.konvo.ui.theme.KonvoTheme
 import com.example.konvo.ui.theme.konvoThemes
 import androidx.navigation.NavController
 import com.example.konvo.feature.auth.vm.signOutEverywhere
+import com.example.konvo.feature.settings.ui.ProfileSettingsScreen
 import com.example.konvo.navigation.Dest
 import com.example.konvo.util.findActivity
 import com.google.firebase.auth.FirebaseAuth
@@ -104,6 +105,12 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
+import com.example.konvo.data.FirestoreRepository
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.material.icons.filled.Close
 
 // DataStore setup
 private val THEME_INDEX_KEY = intPreferencesKey("theme_index")
@@ -137,8 +144,10 @@ data class DMChat(
     val userUsername: String, // username
     val lastMessage: String,
     val lastMessageTime: String,
+    val lastMessageTimeNumeric: Long? = null, // Add numeric timestamp for reliable sorting
     val unread: Int,
-    val otherUserId: String // <-- add this
+    val otherUserId: String,
+    val profileImage: String? = null // Add profileImage field
 ) : ChatItem(id)
 
 // Remove local KonvoTheme data class and themes list, use konvoThemes instead
@@ -162,46 +171,110 @@ fun ChatListScreen(nav: NavController) {
         saveThemePrefs(context, themeIndex, animatedThemeEnabled)
     }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showProfileImagePreview by remember { mutableStateOf<String?>(null) }
     val theme = konvoThemes[themeIndex]
     var search by rememberSaveable { mutableStateOf("") }
     // Animated theme toggle state
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showProfileDialog by remember { mutableStateOf(false) }
+    // Show profile settings directly
+    var showProfileSettings by remember { mutableStateOf(false) }
 
-    // Real-time Firestore chat list
+    // If profile settings should be shown, show it instead of normal chat list
+    if (showProfileSettings) {
+        // Handle back button to return to chat list
+        BackHandler {
+            showProfileSettings = false
+        }
+        ProfileSettingsScreen(
+            navController = nav,
+            onBackPressed = { showProfileSettings = false }
+        )
+        return
+    }
+    
+    // Real-time chat list updates
     val userId = Firebase.auth.currentUser?.uid
     var chats by remember { mutableStateOf<List<ChatItem>>(emptyList()) }
-    var listenerRegistration by remember { mutableStateOf<com.google.firebase.firestore.ListenerRegistration?>(null) }
-
-    DisposableEffect(userId) {
-        listenerRegistration?.remove()
+    var listenerRegistration: com.google.firebase.firestore.ListenerRegistration? by remember { mutableStateOf(null) }
+    
+    // User profile data
+    var userName by remember { mutableStateOf("") }
+    var userProfileImage by remember { mutableStateOf<String?>(null) }
+    var userOnline by remember { mutableStateOf(true) }
+    
+    // Load user profile data
+    LaunchedEffect(userId) {
         if (userId != null) {
-            val db = FirebaseFirestore.getInstance()
-            listenerRegistration = db.collection("users").document(userId).collection("chats")
-                .addSnapshotListener { snapshot, _ ->
-                    if (snapshot != null) {
-                        chats = snapshot.documents.mapNotNull { doc ->
-                            val chatId = doc.id
-                            val userName = doc.getString("userName") ?: "Unknown"
-                            val userUsername = doc.getString("userUsername") ?: userName
-                            val lastMessage = doc.getString("lastMessage") ?: ""
-                            val lastMessageTime = doc.getString("lastMessageTime") ?: ""
-                            val unread = (doc.getLong("unreadCount") ?: 0L).toInt()
-                            val otherUserId = doc.getString("otherUserId") ?: ""
-                            DMChat(chatId, userName, userUsername, lastMessage, lastMessageTime, unread, otherUserId)
-                        }
-                    }
-                }
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val userDoc = db.collection("users").document(userId).get().await()
+                userName = userDoc.getString("name") ?: "User"
+                userProfileImage = userDoc.getString("profileImage")
+            } catch (e: Exception) {
+                println("[ChatListScreen] Error loading user profile: ${e.message}")
+            }
         }
+    }
+    
+    DisposableEffect(userId) {
+        // Clean up any existing listener
+        listenerRegistration?.remove()
+        
+        // If user is logged in, set up real-time chat list listener
+        if (userId != null) {
+            listenerRegistration = FirestoreRepository.listenForChatList(
+                userId = userId,
+                onChatListUpdate = { chatDataList ->
+                    // Convert the raw data to our ChatItem objects
+                    val chatItems = chatDataList.mapNotNull { data ->
+                        val chatId = data["id"] as? String ?: return@mapNotNull null
+                        val userName = data["userName"] as? String ?: "Unknown"
+                        val userUsername = data["userUsername"] as? String ?: userName
+                        val lastMessage = data["lastMessage"] as? String ?: ""
+                        val lastMessageTime = data["lastMessageTime"] as? String ?: ""
+                        val lastMessageTimeNumeric = (data["lastMessageTimeNumeric"] as? Long) 
+                            ?: (data["lastMessageTime"] as? String)?.toLongOrNull()
+                            ?: System.currentTimeMillis() // Fallback to current time
+                        val unread = (data["unreadCount"] as? Long)?.toInt() ?: 0
+                        val otherUserId = data["otherUserId"] as? String ?: ""
+                        val profileImage = data["profileImage"] as? String
+                        
+                        println("[ChatListScreen] Chat data: id=$chatId, lastMessage=$lastMessage, lastMessageTime=$lastMessageTime, lastMessageTimeNumeric=$lastMessageTimeNumeric")
+                        
+                        // Create a DMChat item (we're not handling GroupChat items yet)
+                        DMChat(
+                            id = chatId,
+                            userName = userName, 
+                            userUsername = userUsername,
+                            lastMessage = lastMessage,
+                            lastMessageTime = lastMessageTime,
+                            lastMessageTimeNumeric = lastMessageTimeNumeric,
+                            unread = unread,
+                            otherUserId = otherUserId,
+                            profileImage = profileImage
+                        )
+                    }
+                    
+                    // Update the chats state
+                    chats = chatItems
+                },
+                onError = { error ->
+                    println("[ChatListScreen] Error listening for chat list: ${error.message}")
+                    // Could show a snackbar or other error UI here
+                }
+            )
+        }
+        
+        // Clean up on dispose
         onDispose {
             listenerRegistration?.remove()
         }
     }
-
+    
     // Sort chats by lastMessageTime descending (most recent first)
     val sortedChats = chats.sortedByDescending {
         when (it) {
-            is DMChat -> it.lastMessageTime.toLongOrNull() ?: 0L
+            is DMChat -> it.lastMessageTimeNumeric ?: 0L
             is GroupChat -> it.lastMessageTime.toLongOrNull() ?: 0L
             else -> 0L
         }
@@ -214,12 +287,8 @@ fun ChatListScreen(nav: NavController) {
                 (it is DMChat && it.userName.contains(search, true))
     }
 
-    // Mock user profile
-    val userName = "John Doe"
-    val userOnline = true
-    val userInitials =
-        userName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("")
-            .uppercase()
+    // Calculate user initials for fallback avatar
+    val userInitials = userName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase()
     val userColor = Color(0xFF4FACFE)
 
     val gradientColors = when (theme.name) {
@@ -376,19 +445,54 @@ fun ChatListScreen(nav: NavController) {
                             }
                             Spacer(Modifier.width(8.dp))
                             Box(contentAlignment = Alignment.BottomEnd) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = userColor.copy(alpha = 0.1f),
-                                    modifier = Modifier.size(36.dp)
-                                        .clickable { showProfileDialog = true }
-                                ) {
-                                    Text(
-                                        userInitials,
-                                        color = userColor,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        modifier = Modifier.padding(6.dp)
+                                // Profile Avatar with image or fallback
+                                if (userProfileImage != null) {
+                                    println("[ChatListScreen] Loading profile image: $userProfileImage")
+                                    AsyncImage(
+                                        model = coil.request.ImageRequest.Builder(context)
+                                            .data(userProfileImage + "?t=${System.currentTimeMillis()}")
+                                            .crossfade(true)
+                                            .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                            .placeholder(android.R.drawable.ic_menu_gallery)
+                                            .error(android.R.drawable.ic_menu_report_image)
+                                            .build(),
+                                        contentDescription = "Profile Image",
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .border(1.dp, userColor.copy(alpha = 0.3f), CircleShape)
+                                            .clickable { 
+                                                if (showProfileImagePreview == null) {
+                                                    showProfileImagePreview = userProfileImage
+                                                } else {
+                                                    println("[ChatListScreen] Setting showProfileSettings to true")
+                                                    showProfileSettings = true
+                                                }
+                                            },
+                                        contentScale = ContentScale.Crop,
+                                        onLoading = { println("[ChatListScreen] Loading profile image: $userProfileImage") },
+                                        onSuccess = { println("[ChatListScreen] Successfully loaded profile image: $userProfileImage") },
+                                        onError = { println("[ChatListScreen] Error loading profile image: $userProfileImage - ${it.result.throwable?.message}") }
                                     )
+                                } else {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = userColor.copy(alpha = 0.1f),
+                                        modifier = Modifier.size(36.dp)
+                                            .clickable { 
+                                                println("[ChatListScreen] Setting showProfileSettings to true (second instance)")
+                                                showProfileSettings = true 
+                                            }
+                                    ) {
+                                        Text(
+                                            userInitials,
+                                            color = userColor,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            modifier = Modifier.padding(6.dp)
+                                        )
+                                    }
                                 }
                                 // Online status dot
                                 Box(
@@ -399,9 +503,9 @@ fun ChatListScreen(nav: NavController) {
                                         .background(
                                             if (userOnline) Color(0xFF4CAF50) else Color(
                                                 0xFFB0B3C6
-                                            ), CircleShape
+                                            ),
+                                            CircleShape
                                         )
-                                        .border(2.dp, theme.background, CircleShape)
                                 )
                             }
                         }
@@ -640,19 +744,54 @@ fun ChatListScreen(nav: NavController) {
                         }
                         Spacer(Modifier.width(8.dp))
                         Box(contentAlignment = Alignment.BottomEnd) {
-                            Surface(
-                                shape = CircleShape,
-                                color = userColor.copy(alpha = 0.1f),
-                                modifier = Modifier.size(36.dp)
-                                    .clickable { showProfileDialog = true }
-                            ) {
-                                Text(
-                                    userInitials,
-                                    color = userColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    modifier = Modifier.padding(6.dp)
+                            // Profile Avatar with image or fallback
+                            if (userProfileImage != null) {
+                                println("[ChatListScreen] Loading profile image: $userProfileImage")
+                                AsyncImage(
+                                    model = coil.request.ImageRequest.Builder(context)
+                                        .data(userProfileImage + "?t=${System.currentTimeMillis()}")
+                                        .crossfade(true)
+                                        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                        .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                        .placeholder(android.R.drawable.ic_menu_gallery)
+                                        .error(android.R.drawable.ic_menu_report_image)
+                                        .build(),
+                                    contentDescription = "Profile Image",
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .border(1.dp, userColor.copy(alpha = 0.3f), CircleShape)
+                                        .clickable { 
+                                            if (showProfileImagePreview == null) {
+                                                showProfileImagePreview = userProfileImage
+                                            } else {
+                                                println("[ChatListScreen] Setting showProfileSettings to true (second instance)")
+                                                showProfileSettings = true
+                                            }
+                                        },
+                                    contentScale = ContentScale.Crop,
+                                    onLoading = { println("[ChatListScreen] Loading profile image: $userProfileImage") },
+                                    onSuccess = { println("[ChatListScreen] Successfully loaded profile image: $userProfileImage") },
+                                    onError = { println("[ChatListScreen] Error loading profile image: $userProfileImage - ${it.result.throwable?.message}") }
                                 )
+                            } else {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = userColor.copy(alpha = 0.1f),
+                                    modifier = Modifier.size(36.dp)
+                                        .clickable { 
+                                            println("[ChatListScreen] Setting showProfileSettings to true (second instance)")
+                                            showProfileSettings = true 
+                                        }
+                                ) {
+                                    Text(
+                                        userInitials,
+                                        color = userColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.padding(6.dp)
+                                    )
+                                }
                             }
                             // Online status dot
                             Box(
@@ -927,9 +1066,46 @@ fun ChatListScreen(nav: NavController) {
                     containerColor = Color.Transparent
                 )
             }
-            if (showProfileDialog) {
-                Dialog(onDismissRequest = { showProfileDialog = false }) {
-                    ProfileScreen(onClose = { showProfileDialog = false })
+            // Profile dialog section removed - using ProfileSettingsScreen directly
+        }
+    }
+
+    // Profile image preview dialog
+    if (showProfileImagePreview != null) {
+        Dialog(onDismissRequest = { showProfileImagePreview = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black)
+            ) {
+                AsyncImage(
+                    model = coil.request.ImageRequest.Builder(context)
+                        .data(showProfileImagePreview + "?t=${System.currentTimeMillis()}")
+                        .crossfade(true)
+                        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                        .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                        .placeholder(android.R.drawable.ic_menu_gallery)
+                        .error(android.R.drawable.ic_menu_report_image)
+                        .build(),
+                    contentDescription = "Profile Image Preview",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                
+                IconButton(
+                    onClick = { showProfileImagePreview = null },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.White
+                    )
                 }
             }
         }
@@ -1050,7 +1226,7 @@ fun ChatListItem(
                 if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
                     IconButton(
                         onClick = {
-                            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             actionIconScale = 1.2f
                         },
                         modifier = Modifier.background(
@@ -1084,7 +1260,7 @@ fun ChatListItem(
                         ) {
                             IconButton(
                                 onClick = {
-                                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     actionIconScale = 1.2f
                                 },
                                 modifier = Modifier.background(
@@ -1102,7 +1278,7 @@ fun ChatListItem(
                             Spacer(Modifier.width(8.dp))
                             IconButton(
                                 onClick = {
-                                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     actionIconScale = 1.2f
                                 },
                                 modifier = Modifier.background(
@@ -1152,17 +1328,42 @@ fun ChatListItem(
                             )
                         }
                     } else if (chat is DMChat) {
-                        Box(
-                            Modifier.size(48.dp).clip(CircleShape)
-                                .background(dmAccent.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                tint = dmAccent,
-                                modifier = Modifier.size(28.dp)
+                        if (chat.profileImage != null) {
+                            // Display profile image if available
+                            println("[ChatListScreen] Loading chat profile image: ${chat.profileImage}")
+                            AsyncImage(
+                                model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                    .data(chat.profileImage + "?t=${System.currentTimeMillis()}")
+                                    .crossfade(true)
+                                    .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                    .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                    .placeholder(android.R.drawable.ic_menu_gallery)
+                                    .error(android.R.drawable.ic_menu_report_image)
+                                    .build(),
+                                contentDescription = "Profile image",
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .border(1.dp, dmAccent.copy(alpha = 0.3f), CircleShape),
+                                contentScale = ContentScale.Crop,
+                                onLoading = { println("[ChatListScreen] Loading chat profile image: ${chat.profileImage}") },
+                                onSuccess = { println("[ChatListScreen] Successfully loaded chat profile image: ${chat.profileImage}") },
+                                onError = { println("[ChatListScreen] Error loading chat profile image: ${chat.profileImage} - ${it.result.throwable?.message}") }
                             )
+                        } else {
+                            // Default avatar with first letter if no profile image
+                            Box(
+                                Modifier.size(48.dp).clip(CircleShape)
+                                    .background(dmAccent.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = chat.userName.firstOrNull()?.toString()?.uppercase() ?: "?",
+                                    color = dmAccent,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp
+                                )
+                            }
                         }
                     }
                     Spacer(Modifier.width(12.dp))
@@ -1202,7 +1403,9 @@ fun ChatListItem(
                             if (rawTime.isNotBlank() && rawTime.length > 8) {
                                 val ts = rawTime.toLongOrNull() ?: 0L
                                 if (ts > 1000000000000L) {
-                                    SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(ts))
+                                    val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                                    sdf.timeZone = TimeZone.getTimeZone("Asia/Kolkata") // Set to Indian Standard Time
+                                    sdf.format(Date(ts))
                                 } else {
                                     rawTime
                                 }
@@ -1257,7 +1460,7 @@ fun ChatListItem(
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
-                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     // Delete chatlist entry for this user
                     val db = FirebaseFirestore.getInstance()
                     val userId = FirebaseAuth.getInstance().currentUser?.uid
